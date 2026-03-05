@@ -1,11 +1,11 @@
-package com.godraadam.lox;
+package com.godraadam.lox.token;
 
 public class Token {
 
-    private final TokenType type;
-    private final String lexeme;
-    private final int line;
-    private final Object literal;
+    public final TokenType type;
+    public final String lexeme;
+    public final int line;
+    public final Object literal;
 
     public Token(TokenType type, String lexeme, Object literal, int line) {
         this.type = type;

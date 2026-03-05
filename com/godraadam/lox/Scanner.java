@@ -1,5 +1,7 @@
 package com.godraadam.lox;
 
+import com.godraadam.lox.token.Token;
+import com.godraadam.lox.token.TokenType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,8 +48,8 @@ public class Scanner {
             start = current;
             scanToken();
         }
-
-        return this.tokens;
+        tokens.add(new Token(TokenType.EOF, "", null, line));
+        return tokens;
     }
 
     private boolean isAtEnd() {
