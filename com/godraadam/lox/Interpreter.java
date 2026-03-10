@@ -1,20 +1,97 @@
 package com.godraadam.lox;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.godraadam.lox.ast.Expr;
+import com.godraadam.lox.ast.Stmt;
+import com.godraadam.lox.ast.Stmt.Block;
+import com.godraadam.lox.ast.Stmt.Expression;
+import com.godraadam.lox.ast.Stmt.FuncDecl;
+import com.godraadam.lox.ast.Stmt.If;
+import com.godraadam.lox.ast.Stmt.Return;
+import com.godraadam.lox.ast.Stmt.VarDecl;
+import com.godraadam.lox.ast.Stmt.While;
+import com.godraadam.lox.environment.Environment;
+import com.godraadam.lox.ast.Expr.Assignment;
 import com.godraadam.lox.ast.Expr.Binary;
+import com.godraadam.lox.ast.Expr.Call;
 import com.godraadam.lox.ast.Expr.Grouping;
+import com.godraadam.lox.ast.Expr.Identifier;
 import com.godraadam.lox.ast.Expr.Literal;
+import com.godraadam.lox.ast.Expr.Logical;
 import com.godraadam.lox.ast.Expr.Unary;
 import com.godraadam.lox.exception.RuntimeError;
+import com.godraadam.lox.object.LoxCallable;
+import com.godraadam.lox.object.LoxFunction;
+import com.godraadam.lox.object.ReturnValue;
 import com.godraadam.lox.token.Token;
 import com.godraadam.lox.token.TokenType;
 
-public class Interpreter implements Expr.Visitor<Object> {
+public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Object> {
 
-    public void interpret(Expr program) {
+    public final Environment globals;
+    private Environment environment;
+
+    public Interpreter(Environment env) {
+        globals = env;
+        environment = globals;
+        globals.defineGlobal("print", new LoxCallable() {
+            @Override
+            public int arity() {
+                return 0;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> args) {
+                List<String> strings = new ArrayList<>();
+                for (Object arg : args) {
+                    strings.add(stringify(arg));
+                }
+                System.out.println(String.join(", ", strings));
+                return null;
+            }
+
+            @Override
+            public boolean isVariadic() {
+                return true;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn print>";
+            }
+        });
+
+        globals.defineGlobal("now", new LoxCallable() {
+            @Override
+            public int arity() {
+                return 0;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter,
+                    List<Object> arguments) {
+                return (double) System.currentTimeMillis() / 1000.0;
+            }
+
+            @Override
+            public boolean isVariadic() {
+                return false;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn now>";
+            }
+        });
+    }
+
+    public void interpret(List<Stmt> program) {
         try {
-            Object value = eval(program);
-            System.out.println(stringify(value));
+            for (Stmt stmt : program) {
+                exec(stmt);
+            }
         } catch (RuntimeError e) {
             Lox.runtimeError(e);
         }
@@ -22,6 +99,29 @@ public class Interpreter implements Expr.Visitor<Object> {
 
     private Object eval(Expr expr) {
         return expr.accept(this);
+    }
+
+    private Object exec(Stmt stmt) {
+        return stmt.accept(this);
+    }
+
+    public Object execBlock(List<Stmt> statements,
+            Environment environment) {
+        Environment previous = this.environment;
+        try {
+            this.environment = environment;
+
+            for (Stmt statement : statements) {
+                Object rv = exec(statement);
+                if (rv instanceof ReturnValue) {
+                    this.environment = previous;
+                    return rv;
+                }
+            }
+        } finally {
+            this.environment = previous;
+        }
+        return null;
     }
 
     private boolean isEqual(Object left, Object right) {
@@ -54,7 +154,7 @@ public class Interpreter implements Expr.Visitor<Object> {
             }
             return text;
         }
-         if (object instanceof String) {
+        if (object instanceof String) {
             return "\"" + object + "\"";
         }
 
@@ -121,7 +221,6 @@ public class Interpreter implements Expr.Visitor<Object> {
     @Override
     public Object visitUnaryExpr(Unary expr) {
         Object operand = eval(expr.operand);
-        System.out.println(expr.operator.type);
         switch (expr.operator.type) {
             case TokenType.BANG:
                 return !truthy(operand);
@@ -143,4 +242,115 @@ public class Interpreter implements Expr.Visitor<Object> {
         return eval(expr.expr);
     }
 
+    @Override
+    public Object visitIdentifierExpr(Identifier expr) {
+        return environment.get(expr.name);
+    }
+
+    @Override
+    public Object visitExprStmt(Expression stmt) {
+        return eval(stmt.expr);
+    }
+
+    @Override
+    public Object visitVarDeclStmt(VarDecl stmt) {
+        Object value = null;
+        if (stmt.expr != null) {
+            value = eval(stmt.expr);
+        }
+        environment.define(stmt.name, value);
+        return null;
+    }
+
+    @Override
+    public Object visitAssignmentExpr(Assignment expr) {
+        environment.assign(expr.lValue, eval(expr.rValue));
+        return null;
+    }
+
+    @Override
+    public Object visitBlockStmt(Block block) {
+        Environment currentEnv = environment;
+        Environment blockEnv = new Environment(currentEnv);
+        return execBlock(block.stmts, blockEnv);
+    }
+
+    @Override
+    public Object visitIfStmt(If stmt) {
+        boolean condition = truthy(eval(stmt.condition));
+
+        if (condition) {
+            return exec(stmt.thenBlock);
+        } else if (stmt.elseBlock != null) {
+            return exec(stmt.elseBlock);
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitLogicalExpr(Logical expr) {
+        Object left = eval(expr.left);
+
+        if (expr.operator.type == TokenType.AND) {
+            if (!truthy(left))
+                return left;
+        } else {
+            if (truthy(left))
+                return left;
+        }
+
+        return eval(expr.right);
+    }
+
+    @Override
+    public Object visitWhileStmt(While stmt) {
+        while (truthy(eval(stmt.condition))) {
+            Object rv = exec(stmt.block);
+            if (rv instanceof ReturnValue) {
+                return rv;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitCallExpr(Call expr) {
+        Object callee = eval(expr.callee);
+
+        List<Object> args = new ArrayList<>();
+
+        for (Expr arg : expr.args) {
+            args.add(eval(arg));
+        }
+
+        if (!(callee instanceof LoxCallable)) {
+            throw new RuntimeError(expr.token,
+                    "Can only call functions and classes.");
+        }
+
+        LoxCallable func = (LoxCallable) callee;
+
+        if (!func.isVariadic() && args.size() != func.arity()) {
+            throw new RuntimeError(expr.token, "Expected " +
+                    func.arity() + " arguments but got " +
+                    args.size() + ".");
+        }
+        Object rv = func.call(this, args);
+        if (rv instanceof ReturnValue) {
+            return ((ReturnValue) rv).unwrap();
+        }
+        return rv;
+    }
+
+    @Override
+    public Object visitFuncDeclStmt(FuncDecl stmt) {
+        LoxFunction function = new LoxFunction(stmt, environment);
+        environment.define(stmt.name, function);
+        return null;
+    }
+
+    @Override
+    public Object visitReturnStmt(Return stmt) {
+        return new ReturnValue(eval(stmt.value));
+    }
 }

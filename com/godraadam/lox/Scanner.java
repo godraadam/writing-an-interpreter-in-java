@@ -20,7 +20,6 @@ public class Scanner {
 
     static {
         keyWordMap = new HashMap<>();
-        keyWordMap.put("and", TokenType.AND);
         keyWordMap.put("class", TokenType.CLASS);
         keyWordMap.put("else", TokenType.ELSE);
         keyWordMap.put("false", TokenType.FALSE);
@@ -28,8 +27,6 @@ public class Scanner {
         keyWordMap.put("fn", TokenType.FN);
         keyWordMap.put("if", TokenType.IF);
         keyWordMap.put("nil", TokenType.NIL);
-        keyWordMap.put("or", TokenType.OR);
-        keyWordMap.put("print", TokenType.PRINT);
         keyWordMap.put("return", TokenType.RETURN);
         keyWordMap.put("super", TokenType.SUPER);
         keyWordMap.put("this", TokenType.THIS);
@@ -174,6 +171,18 @@ public class Scanner {
             case '=' -> addToken(match('=') ? TokenType.EQUAL_EQUAL : TokenType.EQUAL);
             case '<' -> addToken(match('=') ? TokenType.LESS_EQUAL : TokenType.LESS);
             case '>' -> addToken(match('=') ? TokenType.GREATER_EQUAL : TokenType.GREATER);
+            case '|' -> {
+                if (match('|'))
+                    addToken(TokenType.OR);
+                else
+                    Lox.error(line, "Unexpected input: '|'");
+            }
+            case '&' -> {
+                if (match('&'))
+                    addToken(TokenType.AND);
+                else
+                    Lox.error(line, "Unexpected input: '&'");
+            }
             case ' ', '\t', '\r' -> {
                 // skip wihtespace
             }

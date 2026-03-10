@@ -1,6 +1,8 @@
 package com.godraadam.lox;
 
 import com.godraadam.lox.ast.Expr;
+import com.godraadam.lox.ast.Stmt;
+import com.godraadam.lox.environment.Environment;
 import com.godraadam.lox.exception.RuntimeError;
 import com.godraadam.lox.token.Token;
 import com.godraadam.lox.token.TokenType;
@@ -32,7 +34,7 @@ public class Lox {
 
     private static void runFile(String path) throws IOException {
         byte[] bytes = Files.readAllBytes(Paths.get(path));
-        run(new String(bytes, Charset.defaultCharset()));
+        run(new String(bytes, Charset.defaultCharset()), new Environment());
 
         if (hadError) {
             System.exit(65);
@@ -47,17 +49,19 @@ public class Lox {
 
         System.out.println("Welcome to jlox version " + VERSION_STRING);
 
+        // we can pass in env vars here
+        Environment env = new Environment();
         while (true) {
             System.out.print("> ");
             String line = reader.readLine();
             if ("exit".equals(line) || line == null)
                 break;
-            run(line);
+            run(line, env);
             hadError = false;
         }
     }
 
-    private static void run(String input) {
+    private static void run(String input, Environment env) {
         Scanner scanner = new Scanner(input);
 
         List<Token> tokens = scanner.scanTokens();
@@ -67,14 +71,14 @@ public class Lox {
         }
 
         Parser parser = new Parser(tokens);
-        Expr expr = parser.parse();
+        List<Stmt> program = parser.parse();
 
         if (hadError) {
             return;
         }
 
-        Interpreter interpreter = new Interpreter();
-        interpreter.interpret(expr);
+        Interpreter interpreter = new Interpreter(env);
+        interpreter.interpret(program);
     }
 
     static void error(int line, String message) {

@@ -1,7 +1,11 @@
 package com.godraadam.lox.ast;
 
+import com.godraadam.lox.ast.Expr.Assignment;
+import com.godraadam.lox.ast.Expr.Call;
 import com.godraadam.lox.ast.Expr.Grouping;
+import com.godraadam.lox.ast.Expr.Identifier;
 import com.godraadam.lox.ast.Expr.Literal;
+import com.godraadam.lox.ast.Expr.Logical;
 import com.godraadam.lox.ast.Expr.Unary;
 
 public class AstPrinter implements Expr.Visitor<String> {
@@ -32,6 +36,12 @@ public class AstPrinter implements Expr.Visitor<String> {
     return parenthesize("grouping", expr.expr);
   }
 
+  @Override
+  public String visitIdentifierExpr(Identifier expr) {
+    return expr.name.lexeme;
+
+  }
+
   private String parenthesize(String name, Expr... exprs) {
     StringBuilder builder = new StringBuilder();
 
@@ -43,6 +53,24 @@ public class AstPrinter implements Expr.Visitor<String> {
     builder.append(")");
 
     return builder.toString();
+  }
+
+  @Override
+  public String visitAssignmentExpr(Assignment expr) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitAssignmentExpr'");
+  }
+
+  @Override
+  public String visitLogicalExpr(Logical expr) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitLogicalExpr'");
+  }
+
+  @Override
+  public String visitCallExpr(Call expr) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitCallExpr'");
   }
 
 }
