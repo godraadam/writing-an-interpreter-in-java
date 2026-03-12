@@ -42,6 +42,23 @@ public class Environment {
                 "Undefined variable '" + name.lexeme + "'.");
     }
 
+    public Environment ancestor(int distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.parent;
+        }
+
+        return environment;
+    }
+
+    public Object getAt(int d, Token name) {
+        return ancestor(d).get(name);
+    }
+
+    public void assignAt(int distance, Token name, Object value) {
+        ancestor(distance).environment.put(name.lexeme, value);
+    }
+
     public Object assign(Token name, Object value) {
         if (environment.containsKey(name.lexeme)) {
             return environment.put(name.lexeme, value);

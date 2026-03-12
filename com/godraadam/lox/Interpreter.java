@@ -1,7 +1,9 @@
 package com.godraadam.lox;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.godraadam.lox.ast.Expr;
 import com.godraadam.lox.ast.Stmt;
@@ -32,6 +34,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Object> {
 
     public final Environment globals;
     private Environment environment;
+    private final Map<Expr, Integer> locals = new HashMap<>();
 
     public Interpreter(Environment env) {
         globals = env;
@@ -122,6 +125,18 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Object> {
             this.environment = previous;
         }
         return null;
+    }
+
+    public void resolve(Expr expr, int d) {
+        locals.put(expr, d);
+    }
+
+    public Object lookupVar(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name);
+        }
+        return environment.get(name);
     }
 
     private boolean isEqual(Object left, Object right) {
@@ -244,7 +259,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Object> {
 
     @Override
     public Object visitIdentifierExpr(Identifier expr) {
-        return environment.get(expr.name);
+        return lookupVar(expr.name, expr);
     }
 
     @Override
@@ -264,7 +279,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Object> {
 
     @Override
     public Object visitAssignmentExpr(Assignment expr) {
-        environment.assign(expr.lValue, eval(expr.rValue));
+        Object value = eval(expr.rValue);
+
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            environment.assignAt(distance, expr.lValue, value);
+        } else {
+            globals.assign(expr.lValue, value);
+        }
         return null;
     }
 

@@ -78,6 +78,13 @@ public class Lox {
         }
 
         Interpreter interpreter = new Interpreter(env);
+        Resolver resolver = new Resolver(interpreter);
+        resolver.resolveStmts(program);
+
+        if (hadError) {
+            return;
+        }
+
         interpreter.interpret(program);
     }
 
